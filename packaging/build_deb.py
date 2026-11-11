@@ -104,8 +104,8 @@ Section: graphics
 Priority: optional
 Architecture: all
 Installed-Size: {installed_size(stage)}
-Depends: python3 (>= 3.10), python3-gi, python3-gi-cairo, gir1.2-gtk-4.0 (>= 4.10), gir1.2-adwaita-1 (>= 1.5), python3-pil
-Recommends: gir1.2-gexiv2, libheif-examples, ffmpeg, imagemagick, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav, gstreamer1.0-gtk4, gvfs, xdg-utils, adwaita-icon-theme
+Depends: python3 (>= 3.10), python3-gi, python3-gi-cairo, gir1.2-gtk-4.0 (>= 4.10), gir1.2-adw-1 (>= 1.5), python3-pil
+Recommends: gir1.2-gexiv2-0.10, libheif-examples, ffmpeg, imagemagick, gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav, gstreamer1.0-gtk4, gvfs, xdg-utils, adwaita-icon-theme
 Maintainer: dengguibao <guibaodeng@icloud.com>
 Description: local photo and video browser for Linux
  A GTK4/libadwaita photo browser with a justified photo wall,

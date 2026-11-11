@@ -85,8 +85,8 @@
 Ubuntu / Debian：
 
 ```bash
-sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adwaita-1 \
-    python3-pil gir1.2-gexiv2 libheif-examples ffmpeg
+sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 \
+    python3-pil gir1.2-gexiv2-0.10 libheif-examples ffmpeg
 ```
 
 Fedora：
