@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# 便捷启动脚本：无论从哪个目录调用都能找到项目。
+set -euo pipefail
+DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+exec python3 "$DIR/run.py" "$@"

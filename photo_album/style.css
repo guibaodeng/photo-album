@@ -1,0 +1,114 @@
+/* 相册 —— 自定义样式（基于 libadwaita 主题变量） */
+
+/* ---------------------------------------------------------------- 照片墙 */
+.section-title {
+  font-size: 1.28rem;
+  font-weight: 800;
+}
+
+.section-count {
+  font-size: 0.85rem;
+  font-weight: 500;
+  opacity: 0.48;
+}
+
+.section-line {
+  min-height: 1px;
+  opacity: 0.10;
+  margin-top: 3px;
+}
+
+.gallery-scroll {
+  background: transparent;
+}
+
+/* 隐藏纵向滚动条，但保留滚动行为 */
+.gallery-scroll scrollbar {
+  opacity: 0;
+}
+
+/* ---------------------------------------------------------------- 右键菜单 */
+.context-menu {
+  padding: 2px;
+}
+
+.context-delete {
+  color: #e01b24;
+}
+
+/* ---------------------------------------------------------------- 浮动按钮 */
+.scroll-top-button {
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 999px;
+  padding: 0;
+}
+
+/* ---------------------------------------------------------------- 加载页 */
+.scan-progress {
+  min-height: 4px;
+  border-radius: 999px;
+}
+
+/* ---------------------------------------------------------------- 查看器 */
+.viewer-window {
+  background-color: #0b0b0d;
+}
+
+.viewer-window headerbar {
+  background-color: rgba(18, 18, 20, 0.82);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: none;
+}
+
+.viewer-window .osd {
+  background-color: rgba(28, 28, 31, 0.72);
+  color: #ffffff;
+}
+
+.viewer-window .nav-button {
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 999px;
+  padding: 0;
+}
+
+.loading-pill {
+  background-color: rgba(24, 24, 27, 0.82);
+  color: #f2f2f4;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.zoom-pill {
+  background-color: rgba(24, 24, 27, 0.82);
+  color: #f2f2f4;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.info-panel {
+  background-color: rgba(20, 20, 23, 0.94);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 18px 16px 0 18px;
+}
+
+.info-title {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: #f5f5f7;
+}
+
+.info-label {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.info-value {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.92);
+}

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "photo-album"
+version = "1.0.0"
+description = "Linux 本地照片与视频浏览器：多目录媒体库、等高行/连续照片墙、时间线、EXIF、视频播放与右键删除"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "dengguibao" }]
+keywords = ["gtk4", "libadwaita", "photos", "gallery", "justified-layout", "heic"]
+classifiers = [
+    "Environment :: X11 Applications :: GTK",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics :: Viewers",
+]
+# PyGObject / GTK / Pillow 来自系统包，不通过 pip 安装。
+dependencies = []
+
+[project.scripts]
+photo-album = "photo_album.application:main"
+
+[tool.setuptools]
+packages = ["photo_album"]
+
+[tool.setuptools.package-data]
+photo_album = ["style.css", "assets/hicolor/scalable/apps/*.svg"]
