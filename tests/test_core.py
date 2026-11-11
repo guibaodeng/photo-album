@@ -242,6 +242,15 @@ class ScannerTests(unittest.TestCase):
         self.assertEqual(item.taken_at, datetime(2019, 4, 24, 8, 54, 56))
         self.assertEqual(item.date_source, "filename")
 
+    def test_scan_streams_items_in_batches(self) -> None:
+        for index in range(12):
+            make_image(self.root / f"{index:02d}.jpg", (400, 300))
+        streamed: list[MediaItem] = []
+        result = LibraryScanner(self.root).scan(batch=streamed.extend)
+        self.assertEqual(len(result.items), 12)
+        self.assertEqual(len(streamed), 12)
+        self.assertEqual({item.path for item in streamed}, {item.path for item in result.items})
+
     def test_missing_directory_returns_empty_result(self) -> None:
         result = LibraryScanner(self.root / "does-not-exist").scan()
         self.assertEqual(result.items, [])

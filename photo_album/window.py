@@ -78,6 +78,11 @@ class MainWindow(Adw.ApplicationWindow):
         self._scan_generation = 0
         self._scan_cancel: threading.Event | None = None
         self._scan_thread: threading.Thread | None = None
+        self._scanning = False
+        self._scan_first_batch = True
+        self._scan_total = 0
+        self._scan_refresh_source = 0
+        self._scan_ui_started = False
         self._viewer: MediaViewer | None = None
         self._preferences: PreferencesDialog | None = None
         self._exif_editor: ExifEditor | None = None
@@ -186,7 +191,7 @@ class MainWindow(Adw.ApplicationWindow):
         drop = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
         drop.connect("drop", self._on_drop)
         self.add_controller(drop)
-        self._page_stack.set_visible_child_name("loading")
+        self._page_stack.set_visible_child_name("gallery")
         self._set_timeline_visible(self._config.show_timeline)
 
     def _build_gallery_page(self) -> Gtk.Widget:
@@ -229,6 +234,19 @@ class MainWindow(Adw.ApplicationWindow):
         page.set_halign(Gtk.Align.FILL)
         page.set_child(self._scroller)
         page.add_overlay(self._timeline)
+
+        self._scan_pill = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self._scan_pill.add_css_class("loading-pill")
+        self._scan_pill.set_halign(Gtk.Align.CENTER)
+        self._scan_pill.set_valign(Gtk.Align.START)
+        self._scan_pill.set_margin_top(18)
+        spinner = Adw.Spinner()
+        spinner.set_size_request(16, 16)
+        self._scan_pill.append(spinner)
+        self._scan_pill_label = Gtk.Label(label="正在扫描…")
+        self._scan_pill.append(self._scan_pill_label)
+        self._scan_pill.set_visible(False)
+        page.add_overlay(self._scan_pill)
 
         timeline_scroll = Gtk.EventControllerScroll.new(
             Gtk.EventControllerScrollFlags.VERTICAL
@@ -447,16 +465,21 @@ class MainWindow(Adw.ApplicationWindow):
         self._scan_cancel = threading.Event()
         self._scan_generation += 1
         generation = self._scan_generation
-        self._all_items = []
-        self._filtered_items = []
+        if self._scan_refresh_source:
+            GLib.source_remove(self._scan_refresh_source)
+            self._scan_refresh_source = 0
+        self._scanning = True
+        self._scan_first_batch = True
+        self._scan_total = 0
         self._window_title.set_title(APP_NAME)
         self._window_title.set_subtitle("正在扫描…")
         self._window_title.set_tooltip_text(f"媒体库：\n{self._config.library_tooltip()}")
         self._pending_scroll = None
         self._scan_progress.set_fraction(0.0)
-        self._page_stack.set_visible_child_name("loading")
+        # 直接进入相册；扫描结果按批次填入，不再阻塞在加载页。
+        self._page_stack.set_visible_child_name("gallery")
         self._set_timeline_visible(self._config.show_timeline)
-        self._timeline.set_entries([])
+        self._set_scan_pill(True, "正在扫描目录…")
 
         config = self._config
         cancel = self._scan_cancel
@@ -497,6 +520,9 @@ class MainWindow(Adw.ApplicationWindow):
                 progress=lambda done, total, phase: GLib.idle_add(
                     self._on_scan_progress, generation, done, total, phase
                 ),
+                batch=lambda items: GLib.idle_add(
+                    self._on_scan_batch, generation, items
+                ),
             )
         except ScanCancelled:
             return
@@ -505,23 +531,75 @@ class MainWindow(Adw.ApplicationWindow):
             return
         GLib.idle_add(self._on_scan_finished, generation, result)
 
+    def _set_scan_pill(self, visible: bool, text: str | None = None) -> None:
+        if not hasattr(self, "_scan_pill"):
+            return
+        if text is not None:
+            self._scan_pill_label.set_text(text)
+        self._scan_pill.set_visible(visible)
+
+    def _update_scan_status(self, phase: str = "probe") -> None:
+        if not self._scanning:
+            return
+        if phase == "walk":
+            text = "正在扫描目录…"
+        elif self._scan_total:
+            text = f"正在加载 {len(self._all_items)}/{self._scan_total}…"
+        else:
+            text = "正在加载照片…"
+        self._window_title.set_subtitle(text)
+        self._set_scan_pill(True, text)
+
     def _on_scan_progress(self, generation: int, done: int, total: int, phase: str) -> bool:
         if generation != self._scan_generation or self._closed:
             return False
         if phase == "walk":
-            self._window_title.set_subtitle("正在扫描目录…")
-            self._scan_progress.pulse()
+            self._update_scan_status("walk")
         elif phase == "probe":
+            self._scan_total = total
             fraction = done / total if total else 0.0
             self._scan_progress.set_fraction(fraction)
-            self._window_title.set_subtitle(f"正在读取照片信息… {done}/{total}")
+            self._update_scan_status("probe")
         elif phase == "done":
             self._scan_progress.set_fraction(1.0)
+        return False
+
+    def _on_scan_batch(self, generation: int, items: list[MediaItem]) -> bool:
+        if generation != self._scan_generation or self._closed or not items:
+            return False
+        if self._scan_first_batch:
+            # 第一次收到结果时替换旧内容，避免重扫时新旧条目混在一起。
+            self._all_items = []
+            self._filtered_items = []
+            self._scan_first_batch = False
+        existing = {item.path: item for item in self._all_items}
+        for item in items:
+            existing[item.path] = item
+        self._all_items = list(existing.values())
+        if not self._scan_ui_started:
+            # 第一批立即显示，避免快速扫描时等到最后才看到相册。
+            self._scan_ui_started = True
+            self._refresh_scan_items()
+        elif self._scan_refresh_source == 0:
+            self._scan_refresh_source = GLib.timeout_add(120, self._flush_scan_batch)
+        return False
+
+    def _flush_scan_batch(self) -> bool:
+        self._scan_refresh_source = 0
+        if self._closed:
+            return False
+        if self._all_items:
+            self._refresh_scan_items()
         return False
 
     def _on_scan_failed(self, generation: int, message: str) -> bool:
         if generation != self._scan_generation or self._closed:
             return False
+        self._scanning = False
+        if self._scan_refresh_source:
+            GLib.source_remove(self._scan_refresh_source)
+            self._scan_refresh_source = 0
+        self._set_scan_pill(False)
         self._show_error(message, retry=True)
         self._window_title.set_subtitle("扫描失败")
         return False
@@ -529,8 +607,16 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_scan_finished(self, generation: int, result: ScanResult) -> bool:
         if generation != self._scan_generation or self._closed:
             return False
-        self._all_items = result.items
-        self._update_header()
+        self._scanning = False
+        if self._scan_refresh_source:
+            GLib.source_remove(self._scan_refresh_source)
+            self._scan_refresh_source = 0
+        self._scan_total = len(result.items)
+        self._set_scan_pill(False)
+        self._all_items = list(result.items)
+        self._all_items.sort(
+            key=lambda item: item.sort_key, reverse=self._config.sort_descending
+        )
         if result.errors:
             print("扫描时遇到问题：")
             for error in result.errors[:10]:
@@ -539,12 +625,53 @@ class MainWindow(Adw.ApplicationWindow):
         if missing:
             self._show_toast(f"{len(missing)} 个媒体库位置无法访问")
         if not self._all_items:
+            self._filtered_items = []
+            self._gallery.update_items([])
             self._show_empty(no_results=False)
             self._window_title.set_subtitle("没有找到媒体文件")
             return False
 
-        self._apply_filters(reset_scroll=True)
+        items = self._filtered_items_for_current_settings()
+        if not items:
+            self._filtered_items = []
+            self._gallery.update_items([])
+            self._show_empty(no_results=True)
+            self._window_title.set_subtitle("没有匹配的项目")
+            return False
+
+        value = self._vadjustment.get_value()
+        active = self._gallery.active_month(value)
+        anchor = self._gallery.jump_offset(*active) if active is not None else None
+        delta = max(0.0, value - anchor) if anchor is not None else 0.0
+        self._filtered_items = items
+        self._gallery.update_items(items)
+        self._set_timeline_visible(self._config.show_timeline)
+        self._timeline.set_entries(self._gallery.timeline_entries())
+        self._page_stack.set_visible_child_name("gallery")
+        self._update_header()
+        self._pending_scroll = (active, delta, value, 0)
+        GLib.idle_add(self._update_view)
         return False
+
+    def _refresh_scan_items(self) -> None:
+        value = self._vadjustment.get_value()
+        active = self._gallery.active_month(value)
+        anchor = self._gallery.jump_offset(*active) if active is not None else None
+        delta = max(0.0, value - anchor) if anchor is not None else 0.0
+        self._all_items.sort(
+            key=lambda item: item.sort_key, reverse=self._config.sort_descending
+        )
+        items = self._filtered_items_for_current_settings()
+        self._filtered_items = items
+        self._gallery.update_items(items)
+        self._set_timeline_visible(self._config.show_timeline)
+        self._timeline.set_entries(self._gallery.timeline_entries())
+        self._page_stack.set_visible_child_name("gallery")
+        self._update_header()
+        self._update_scan_status()
+        if items:
+            self._pending_scroll = (active, delta, value, 0)
+        GLib.idle_add(self._update_view)
 
     # ------------------------------------------------------------------ 筛选
     def _schedule_filter(self, immediate: bool = False) -> None:
@@ -564,6 +691,20 @@ class MainWindow(Adw.ApplicationWindow):
     def _current_filter(self) -> int:
         return self._filter_mode
 
+    def _filtered_items_for_current_settings(self) -> list[MediaItem]:
+        items = self._all_items
+        mode = self._current_filter()
+        if mode == _FILTER_PHOTOS:
+            items = [item for item in items if not item.is_video]
+        elif mode == _FILTER_VIDEOS:
+            items = [item for item in items if item.is_video]
+        query = self._search_entry.get_text().strip()
+        if query:
+            items = [item for item in items if item.matches(query)]
+        return sorted(
+            items, key=lambda item: item.sort_key, reverse=self._config.sort_descending
+        )
+
     def _apply_filters(self, reset_scroll: bool = True) -> None:
         self._delete_scroll_token += 1
         self._close_context_popover()
@@ -574,16 +715,7 @@ class MainWindow(Adw.ApplicationWindow):
             self._show_empty(no_results=False)
             self._window_title.set_subtitle("没有找到媒体文件")
             return
-        query = self._search_entry.get_text().strip()
-        mode = self._current_filter()
-        items = self._all_items
-        if mode == _FILTER_PHOTOS:
-            items = [item for item in items if not item.is_video]
-        elif mode == _FILTER_VIDEOS:
-            items = [item for item in items if item.is_video]
-        if query:
-            items = [item for item in items if item.matches(query)]
-        items = sorted(items, key=lambda item: item.sort_key, reverse=self._config.sort_descending)
+        items = self._filtered_items_for_current_settings()
         self._filtered_items = items
 
         if not items:
@@ -601,6 +733,7 @@ class MainWindow(Adw.ApplicationWindow):
         GLib.idle_add(self._update_view)
 
     def _show_empty(self, no_results: bool) -> None:
+        self._set_scan_pill(False)
         self._delete_scroll_token += 1
         self._pending_scroll = None
         self._empty_is_filter = no_results
@@ -623,6 +756,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._scroll_top.set_visible(False)
 
     def _show_error(self, message: str, retry: bool = False) -> None:
+        self._set_scan_pill(False)
         self._delete_scroll_token += 1
         self._pending_scroll = None
         self._error_description.set_label(message)

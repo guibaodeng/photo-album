@@ -191,6 +191,33 @@ class Gallery(Gtk.Box):
         GLib.idle_add(self._relayout_after_idle)
         GLib.timeout_add(120, self._relayout_after_timeout)
 
+    def update_items(self, items: Iterable[MediaItem]) -> None:
+        """渐进扫描时更新条目，复用已存在卡片的纹理，只创建新增卡片。"""
+        incoming = list(items)
+        paths = {item.path for item in incoming}
+        for path in list(self._tiles):
+            if path in paths:
+                continue
+            task = self._tasks.pop(path, None)
+            if task is not None:
+                task.cancel()
+            self._requested.discard(path)
+            self._loaded.discard(path)
+            self._wanted.discard(path)
+            tile = self._tiles.pop(path)
+            tile.unparent()
+        for item in incoming:
+            if item.path in self._tiles:
+                continue
+            self._tiles[item.path] = MediaTile(
+                item,
+                self._on_activate,
+                self._on_context_menu,
+                self._on_delete,
+            )
+        self._items = incoming
+        self._reflow_now()
+
     def remove_item(self, item: MediaItem) -> bool:
         """从照片墙移除一条媒体（对应文件已被删除），保留其他已加载纹理。"""
         if item.path not in self._tiles:

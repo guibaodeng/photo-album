@@ -15,7 +15,7 @@ import subprocess
 import threading
 import time
 import warnings
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -442,6 +442,7 @@ def read_media_item(path: Path) -> MediaItem | None:
 
 
 ProgressCallback = Callable[[int, int, str], None]
+BatchCallback = Callable[[list[MediaItem]], None]
 
 
 # --------------------------------------------------------------------------- 扫描器
@@ -537,6 +538,7 @@ class LibraryScanner:
         self,
         cancel: threading.Event | None = None,
         progress: ProgressCallback | None = None,
+        batch: BatchCallback | None = None,
     ) -> ScanResult:
         started = time.monotonic()
         cancel = cancel or threading.Event()
@@ -564,19 +566,35 @@ class LibraryScanner:
                         errors.append(f"{path}: {exc}")
                 return None
 
+        pending_batch: list[MediaItem] = []
+        last_batch = time.monotonic()
         with ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="scan") as pool:
             futures = [pool.submit(work, candidate) for candidate in candidates]
-            for future in futures:
+            for future in as_completed(futures):
                 if cancel.is_set():
                     for pending in futures:
                         pending.cancel()
                     raise ScanCancelled
-                item = future.result()
+                try:
+                    item = future.result()
+                except CancelledError:
+                    continue
                 done += 1
                 if item is not None:
                     items.append(item)
+                    if batch is not None:
+                        pending_batch.append(item)
                 if progress and (done % 20 == 0 or done == total):
                     progress(done, total, "probe")
+                if batch is not None and pending_batch:
+                    now = time.monotonic()
+                    if len(pending_batch) >= 40 or now - last_batch >= 0.12:
+                        batch(list(pending_batch))
+                        pending_batch.clear()
+                        last_batch = now
+
+        if batch is not None and pending_batch:
+            batch(list(pending_batch))
 
         items.sort(key=lambda item: item.sort_key, reverse=True)
         elapsed = time.monotonic() - started
