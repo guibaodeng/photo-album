@@ -70,35 +70,124 @@
 
 ## 环境要求
 
-| 依赖 | 说明 |
-| --- | --- |
-| Python | 3.10 及以上（开发环境：3.14） |
-| GTK | 4.10+（开发环境：4.22） |
-| libadwaita | 1.5+（`Adw.PreferencesDialog` / `Adw.AlertDialog`） |
-| PyGObject | 3.42+（开发环境：3.56） |
-| Pillow | 图片解码与缩略图（开发环境：12.1） |
-| libheif（推荐） | 提供 `heif-convert` / `heif-info`，用于 HEIC/HEIF 缩略图与尺寸 |
-| GExiv2（可选） | 读取 EXIF；缺失时自动退回 Pillow |
-| ffmpeg / ffprobe（可选） | 视频缩略图、时长以及部分图片格式的兜底解码 |
-| ImageMagick（可选） | 没有 `heif-convert` 时的 HEIC 备选解码器 |
+这个项目依赖系统提供的 GTK/PyGObject，不推荐用 pip 单独安装 PyGObject。
 
-Ubuntu / Debian：
+### 必须满足
+
+| 组件 | 最低要求 | 用途 |
+| --- | --- | --- |
+| Python | 3.10 | 运行应用 |
+| PyGObject | 3.42 | GObject Introspection 绑定 |
+| GTK | 4.10 | `Gtk.FileDialog`、GTK4 控件 |
+| libadwaita | 1.5 | `Adw.Dialog`、`Adw.PreferencesDialog`、`Adw.AlertDialog` |
+| Pillow | 9 | 图片解码、缩略图 |
+| Pango / Cairo | 随 GTK 提供 | 时间线绘制 |
+
+### 可选功能依赖
+
+| 组件 | 用途 | 缺失时 |
+| --- | --- | --- |
+| GExiv2（推荐） | 读取/编辑 EXIF | 仍能浏览，但 EXIF 编辑不可用，部分日期退回文件名/mtime |
+| libheif 工具（推荐） | `heif-convert` / `heif-info`，解码 HEIC/HEIF/AVIF | HEIC 可能无法显示；ffmpeg 对部分 iPhone HEIC 支持不完整 |
+| ffmpeg / ffprobe（推荐） | 视频元数据、视频缩略图、部分图片兜底解码 | 视频时长/缩略图可能缺失 |
+| GStreamer GTK4 插件和编解码器 | `Gtk.Video` 播放视频 | 视频可能无法播放 |
+| ImageMagick | 没有 libheif 时的 HEIC 备选解码 | HEIC 兜底能力下降 |
+| GVfs | 移到回收站 | 回收站不可用时只能永久删除 |
+| xdg-utils | 在文件管理器中显示 | 该菜单项可能无效 |
+| adwaita-icon-theme | 界面图标 | 图标可能缺失 |
+
+> `.deb` 只适用于 Debian/Ubuntu 系。Fedora、Arch、openSUSE、NixOS 等请从源码运行
+> `./photo-album`，按下面的发行版命令安装依赖；不要直接安装 `.deb`。
+
+### 版本支持范围
+
+应用使用了 GTK `Gtk.FileDialog`（GTK 4.10+）和 libadwaita 的
+`Adw.Dialog` / `Adw.PreferencesDialog`（libadwaita 1.5+），因此：
+
+| 发行版 | 情况 |
+| --- | --- |
+| Ubuntu 24.04 LTS、26.04 LTS | 可用（26.04 已验证） |
+| Ubuntu 22.04 LTS | 不自带 GTK 4.10 / libadwaita 1.5，需要 Flatpak、Nix 或自行升级依赖 |
+| Debian 13 | 可用 |
+| Debian 12 | GTK 4.8 / libadwaita 1.2，不满足最低版本 |
+| Fedora 40+ | 可用 |
+| Arch Linux | 滚动版可用 |
+| openSUSE Tumbleweed | 可用 |
+| NixOS | 可用，需要按 Nix 方式打包 Python/GTK 依赖 |
+
+如果发行版版本较老，推荐使用 Flatpak 或 Nix 隔离运行，而不是强行混装系统 GIR。
+
+### Debian / Ubuntu
+
+适用于 Ubuntu 24.04+、Debian 13+；Ubuntu 26.04 已验证：
 
 ```bash
 sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 \
-    python3-pil gir1.2-gexiv2-0.10 libheif-examples ffmpeg
+    python3-pil gir1.2-gexiv2-0.10 libheif-examples ffmpeg imagemagick \
+    gstreamer1.0-gtk4 gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+    gstreamer1.0-libav gvfs xdg-utils adwaita-icon-theme
 ```
 
-Fedora：
+注意 Ubuntu 26.04 的包名是 `gir1.2-adw-1` 和 `gir1.2-gexiv2-0.10`，
+不是 `gir1.2-adwaita-1` / `gir1.2-gexiv2`。
+
+### Fedora 40+
 
 ```bash
-sudo dnf install python3-gobject gtk4 libadwaita python3-pillow gexiv2 libheif-tools ffmpeg
+sudo dnf install python3-gobject gtk4 libadwaita python3-pillow gexiv2 \
+    libheif-tools ffmpeg-free ImageMagick gstreamer1-plugin-gtk4 \
+    gstreamer1-plugins-good gstreamer1-plugins-bad-free \
+    gstreamer1-plugins-good-extras gvfs xdg-utils adwaita-icon-theme
 ```
 
-Arch：
+需要更多视频/HEVC 编解码器时，可从 RPM Fusion 安装 `ffmpeg` 和对应 GStreamer 插件。
+
+### Arch Linux
 
 ```bash
-sudo pacman -S python-gobject gtk4 libadwaita python-pillow gexiv2 libheif ffmpeg
+sudo pacman -S python-gobject gtk4 libadwaita python-pillow gexiv2 libheif \
+    ffmpeg imagemagick gst-plugin-gtk4 gst-plugins-good gst-plugins-bad \
+    gst-libav gvfs xdg-utils adwaita-icon-theme
+```
+
+### openSUSE Tumbleweed
+
+大致需要：
+
+```bash
+sudo zypper install python3-gobject python3-gobject-Gdk python3-Pillow \
+    gtk4 libadwaita-1-0 typelib-1_0-Adw-1 gexiv2 typelib-1_0-GExiv2-0_10 \
+    libheif-tools ffmpeg ImageMagick gstreamer1-plugin-gtk4 \
+    gstreamer1-plugins-good gstreamer1-plugins-bad gstreamer1-plugins-libav \
+    gvfs xdg-utils adwaita-icon-theme
+```
+
+openSUSE Leap 的 GTK/libadwaita 版本可能低于要求，建议用 Tumbleweed 或容器/Flatpak。
+
+### 检查当前系统版本
+
+```bash
+python3 - <<'PY'
+import gi
+for namespace, version in (("Gtk", "4.0"), ("Adw", "1"), ("GExiv2", "0.10")):
+    try:
+        gi.require_version(namespace, version)
+        module = __import__("gi.repository", fromlist=[namespace])
+        obj = getattr(module, namespace)
+        print(namespace, getattr(obj, "get_major_version", lambda: "?")(),
+              getattr(obj, "get_minor_version", lambda: "?")())
+    except Exception as error:
+        print(namespace, "missing:", error)
+PY
+```
+
+只要 GTK >= 4.10、libadwaita >= 1.5、Python >= 3.10，并且 PyGObject/Pillow 可用，
+就可以从源码运行；发行版包名差异不影响程序本身。
+
+可以直接运行依赖检查脚本：
+
+```bash
+python3 packaging/check_dependencies.py
 ```
 
 ## 运行
@@ -255,8 +344,9 @@ photo_album/
 
 photo-album.desktop   # 使用当前项目路径的本地桌面入口
 packaging/
-├── build_deb.py      # 生成 .deb 安装包
-└── photo-album.desktop  # 安装到系统的桌面入口
+├── build_deb.py           # 生成 .deb 安装包
+├── check_dependencies.py  # 检查必需/可选依赖
+└── photo-album.desktop    # 安装到系统的桌面入口
 ```
 
 几个关键设计：
