@@ -1,0 +1,18 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=相册
+Name[en]=Photo Album
+GenericName=照片浏览器
+GenericName[en]=Photo Viewer
+Comment=浏览本地照片和视频，支持多目录、时间轴与 EXIF 编辑
+Comment[en]=Browse local photos and videos with timeline and EXIF editing
+Exec=photo-album %F
+TryExec=photo-album
+Icon=photo-album
+Terminal=false
+Categories=Graphics;Photography;Viewer;
+MimeType=inode/directory;
+Keywords=photo;photos;image;video;gallery;相册;照片;视频;
+StartupNotify=true
+StartupWMClass=io.github.dengguibao.PhotoAlbum

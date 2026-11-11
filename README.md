@@ -127,6 +127,37 @@ photo-album
 > 注意：本项目依赖系统提供的 PyGObject/GTK，因此应使用系统 Python 或
 > `--system-site-packages` 的虚拟环境。
 
+## 安装包与桌面图标
+
+已生成可安装的 Debian 包：
+
+```bash
+sudo apt install ./dist/photo-album_1.0.0_all.deb
+```
+
+安装后可以在应用菜单里搜索「相册」启动，桌面入口和图标会安装到系统目录。
+卸载：
+
+```bash
+sudo apt remove photo-album
+```
+
+重新构建安装包：
+
+```bash
+python3 packaging/build_deb.py
+```
+
+仓库根目录的 [photo-album.desktop](photo-album.desktop) 是使用当前项目绝对路径的
+本地桌面入口，可直接复制到桌面或应用菜单：
+
+```bash
+install -m 755 photo-album.desktop ~/.local/share/applications/
+```
+
+安装包内的桌面文件是 `packaging/photo-album.desktop`（使用系统命令 `photo-album`）。
+应用图标使用附件图片生成，包含 128/256/512/1024 四种尺寸。
+
 ## 使用
 
 - **打开照片**：单击卡片或选中后按 `Enter` / 空格。
@@ -221,6 +252,11 @@ photo_album/
 ├── models.py         # MediaItem 数据模型
 ├── theme.py          # 主题色与内置图标纹理
 └── style.css         # libadwaita 主题变量上的自定义样式
+
+photo-album.desktop   # 使用当前项目路径的本地桌面入口
+packaging/
+├── build_deb.py      # 生成 .deb 安装包
+└── photo-album.desktop  # 安装到系统的桌面入口
 ```
 
 几个关键设计：
