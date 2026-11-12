@@ -1,0 +1,134 @@
+# Flatpak manifest for Photo Album.
+#
+# Build (from repository root):
+#   flatpak install flathub org.gnome.Platform//50 org.gnome.Sdk//50
+#   flatpak-builder --user --install --force-clean build-flatpak \
+#       packaging/flatpak/io.github.dengguibao.PhotoAlbum.yaml
+
+app-id: io.github.dengguibao.PhotoAlbum
+runtime: org.gnome.Platform
+runtime-version: "50"
+sdk: org.gnome.Sdk
+command: photo-album
+
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  # 媒体库默认在用户目录，也允许外接硬盘和挂载点。
+  - --filesystem=home
+  - --filesystem=/media
+  - --filesystem=/mnt
+  - --filesystem=/run/media
+  # 在文件管理器中显示、回收站/trash 需要会话 D-Bus。
+  - --talk-name=org.freedesktop.FileManager1
+  - --talk-name=org.gtk.vfs.*
+  # pip 安装的 Pillow 位于 /app。
+  - --env=PYTHONPATH=/app/lib/python3.13/site-packages
+
+modules:
+  # HEIC/HEIF 解码需要 libde265；GNOME runtime 自带的 libheif 没有 CLI，
+  # 这里重新构建带 heif-convert / heif-info 的版本。
+  - name: libde265
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DBUILD_SHARED_LIBS=ON
+      - -DENABLE_SDL=OFF
+      - -DENABLE_DECODER=ON
+      - -DENABLE_ENCODER=OFF
+    sources:
+      - type: git
+        url: https://github.com/strukturag/libde265.git
+        tag: v1.0.15
+
+  - name: libheif
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DBUILD_SHARED_LIBS=ON
+      - -DWITH_EXAMPLES=ON
+      - -DWITH_LIBDE265=ON
+      - -DWITH_X265=OFF
+      - -DWITH_AOM_DECODER=ON
+      - -DWITH_AOM_ENCODER=OFF
+      - -DWITH_RAV1E=OFF
+      - -DWITH_DAV1D=OFF
+      - -DWITH_JPEG=ON
+      - -DWITH_UNCOVERED=OFF
+      - -DWITH_HEIF_VIEW=OFF
+    sources:
+      - type: git
+        url: https://github.com/strukturag/libheif.git
+        tag: v1.20.2
+
+  # EXIF 读取和编辑。
+  - name: exiv2
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DBUILD_SHARED_LIBS=ON
+      - -DEXIV2_BUILD_SAMPLES=OFF
+      - -DEXIV2_BUILD_UNIT_TESTS=OFF
+      - -DEXIV2_ENABLE_BMFF=ON
+      - -DEXIV2_ENABLE_PNG=ON
+      - -DEXIV2_ENABLE_WEBREADY=OFF
+    sources:
+      - type: git
+        url: https://github.com/Exiv2/exiv2.git
+        tag: v0.28.5
+
+  - name: gexiv2
+    buildsystem: meson
+    config-opts:
+      - -Dintrospection=true
+      - -Dpython3=false
+      - -Dtests=false
+      - -Dgtk_doc=false
+    sources:
+      - type: git
+        url: https://gitlab.gnome.org/GNOME/gexiv2.git
+        tag: gexiv2-0.14.7
+
+  # Pillow 不在 GNOME runtime 中。按架构使用预编译 wheel，避免在构建时编译。
+  - name: pillow-x86_64
+    only-arches:
+      - x86_64
+    buildsystem: simple
+    build-commands:
+      - python3 -m pip install --no-index --no-deps --prefix=/app --disable-pip-version-check pillow.whl
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/95/f4/86f51b8745070daf21fd2e5b1fe0eb35d4db9ca26e6d58366562fb56a743/pillow-12.1.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+        sha256: fc44ef1f3de4f45b50ccf9136999d71abb99dca7706bc75d222ed350b9fd2289
+        dest-filename: pillow.whl
+
+  - name: pillow-aarch64
+    only-arches:
+      - aarch64
+    buildsystem: simple
+    build-commands:
+      - python3 -m pip install --no-index --no-deps --prefix=/app --disable-pip-version-check pillow.whl
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/9e/1b/f1a4ea9a895b5732152789326202a82464d5254759fbacae4deea3069334/pillow-12.1.1-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl
+        sha256: 18e5bddd742a44b7e6b1e773ab5db102bd7a94c32555ba656e76d319d19c3850
+        dest-filename: pillow.whl
+
+  - name: photo-album
+    buildsystem: simple
+    build-commands:
+      - install -d /app/lib/photo-album
+      - cp -r photo_album run.py README.md LICENSE /app/lib/photo-album/
+      - install -Dm755 packaging/flatpak/photo-album /app/bin/photo-album
+      - install -Dm644 packaging/flatpak/io.github.dengguibao.PhotoAlbum.desktop /app/share/applications/io.github.dengguibao.PhotoAlbum.desktop
+      - install -Dm644 packaging/flatpak/io.github.dengguibao.PhotoAlbum.metainfo.xml /app/share/metainfo/io.github.dengguibao.PhotoAlbum.metainfo.xml
+      - |
+        for size in 128 256 512 1024; do
+          install -Dm644 "photo_album/assets/hicolor/${size}x${size}/apps/photo-album.png" \
+            "/app/share/icons/hicolor/${size}x${size}/apps/io.github.dengguibao.PhotoAlbum.png"
+          install -Dm644 "photo_album/assets/hicolor/${size}x${size}/apps/photo-album.png" \
+            "/app/share/icons/hicolor/${size}x${size}/apps/photo-album.png"
+        done
+    sources:
+      - type: dir
+        path: ../..

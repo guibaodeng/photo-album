@@ -242,6 +242,34 @@ install -m 755 photo-album.desktop ~/.local/share/applications/
 安装包内的桌面文件是 `packaging/photo-album.desktop`（使用系统命令 `photo-album`）。
 应用图标使用附件图片生成，包含 128/256/512/1024 四种尺寸。
 
+## Flatpak
+
+Flatpak 清单位于：
+
+```text
+packaging/flatpak/io.github.dengguibao.PhotoAlbum.yaml
+```
+
+构建前安装 GNOME 50 runtime 和 SDK（首次需要联网下载）：
+
+```bash
+flatpak install flathub org.gnome.Platform//50 org.gnome.Sdk//50
+flatpak-builder --user --install --force-clean build-flatpak \
+    packaging/flatpak/io.github.dengguibao.PhotoAlbum.yaml
+flatpak run io.github.dengguibao.PhotoAlbum
+```
+
+清单包含：
+
+- GTK4 / libadwaita 来自 GNOME runtime；
+- Pillow 预编译 wheel；
+- libde265 + libheif（含 `heif-convert` / `heif-info`，用于 HEIC）；
+- exiv2 + gexiv2（EXIF 读取/编辑）；
+- 应用、桌面入口、AppStream 信息和图标。
+
+Flatpak 允许访问 `home`、`/media`、`/mnt`、`/run/media`，并从系统回收站/文件管理器
+D-Bus 获取支持。构建过程需要网络下载依赖源码和 Pillow wheel。
+
 ## 使用
 
 - **打开照片**：单击卡片或选中后按 `Enter` / 空格。
@@ -340,7 +368,8 @@ photo-album.desktop   # 使用当前项目路径的本地桌面入口
 packaging/
 ├── build_deb.py           # 生成 .deb 安装包
 ├── check_dependencies.py  # 检查必需/可选依赖
-└── photo-album.desktop    # 安装到系统的桌面入口
+├── photo-album.desktop    # 安装到系统的桌面入口
+└── flatpak/               # Flatpak 清单、desktop 与 AppStream 元数据
 ```
 
 几个关键设计：

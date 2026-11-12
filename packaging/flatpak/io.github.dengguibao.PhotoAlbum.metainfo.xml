@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.dengguibao.PhotoAlbum</id>
+  <name>相册</name>
+  <summary>Photo Album：本地照片与视频浏览器</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.dengguibao">
+    <name>dengguibao</name>
+  </developer>
+  <launchable type="desktop-id">io.github.dengguibao.PhotoAlbum.desktop</launchable>
+  <url type="homepage">https://github.com/dengguibao/photo_album</url>
+  <description>
+    <p>Photo Album is a local photo and video browser built with GTK4 and libadwaita, inspired by the Windows 11 Photos app.</p>
+    <p>它支持多个媒体库位置、等高行照片墙、连续照片墙、月份标题开关、渐进加载、搜索筛选、视频播放、右键复制与删除，以及 EXIF 信息查看和编辑。</p>
+  </description>
+  <categories>
+    <category>Graphics</category>
+    <category>Photography</category>
+    <category>Viewer</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="1.0.2" date="2026-11-12"/>
+  </releases>
+</component>
