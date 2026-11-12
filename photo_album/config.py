@@ -14,7 +14,7 @@ from pathlib import Path
 
 APP_ID = "io.github.dengguibao.PhotoAlbum"
 APP_NAME = "相册"
-APP_VERSION = "1.0.5"
+APP_VERSION = "1.1.0"
 
 #: 时间轴功能暂时关闭；实现保留，改回 True 即可恢复。
 FEATURE_TIMELINE = False
