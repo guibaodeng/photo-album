@@ -240,7 +240,8 @@ class MainWindow(Adw.ApplicationWindow):
         # 不要按内容自然宽度撑大页面，否则隐藏时间线再打开时页面会宽出窗口。
         self._scroller.set_propagate_natural_width(False)
         self._scroller.set_size_request(1, -1)
-        self._scroller.set_overlay_scrolling(True)
+        # 常驻滚动条（内容超出时显示），不再用 overlay 自动隐藏。
+        self._scroller.set_overlay_scrolling(False)
         self._scroller.add_css_class("gallery-scroll")
 
         self._gallery = Gallery(
