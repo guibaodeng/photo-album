@@ -118,7 +118,6 @@ class MainWindow(Adw.ApplicationWindow):
         self._scan_refresh_source = 0
         self._scan_ui_started = False
         self._viewer: MediaViewer | None = None
-        self._month_popover: Gtk.Popover | None = None
         self._preferences: PreferencesDialog | None = None
         self._exif_editor: ExifEditor | None = None
         self._filter_source = 0
@@ -250,7 +249,6 @@ class MainWindow(Adw.ApplicationWindow):
             self._open_viewer,
             self._show_tile_menu,
             self._request_delete,
-            self._show_month_navigation,
         )
         self._gallery.set_headers_visible(self._config.show_date_headers)
         self._gallery.on_layout_changed = self._on_gallery_layout
@@ -833,8 +831,6 @@ class MainWindow(Adw.ApplicationWindow):
 
     # ------------------------------------------------------------------ 视图
     def _on_gallery_layout(self) -> None:
-        # 标题重建后原 anchor 会被移除，先关闭月份导航，避免悬空 popover。
-        self._close_month_popover()
         GLib.idle_add(self._update_view)
 
     def _on_scrolled(self, *_args: object) -> None:
@@ -1015,96 +1011,6 @@ class MainWindow(Adw.ApplicationWindow):
         elif reason == "cache":
             self._gallery.reload_textures()
             GLib.idle_add(self._update_view)
-
-    def _show_month_navigation(self, month: tuple[int, int], anchor: Gtk.Widget) -> None:
-        summary = self._gallery.month_summary()
-        if not summary:
-            return
-        self._close_month_popover()
-
-        active = self._gallery.active_month(self._vadjustment.get_value()) or month
-        popover = Gtk.Popover()
-        popover.add_css_class("month-nav-popover")
-        popover.set_has_arrow(True)
-        popover.set_position(Gtk.PositionType.BOTTOM)
-        popover.set_parent(anchor)
-
-        scroller = Gtk.ScrolledWindow()
-        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroller.set_propagate_natural_height(True)
-        scroller.set_size_request(286, -1)
-        scroller.set_max_content_height(460)
-
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        box.set_margin_top(8)
-        box.set_margin_bottom(8)
-        box.set_margin_start(8)
-        box.set_margin_end(8)
-
-        heading = Gtk.Label(label="月份导航")
-        heading.add_css_class("month-nav-heading")
-        heading.set_xalign(0.0)
-        box.append(heading)
-
-        last_year: int | None = None
-        for (year, month_number), count in summary:
-            if year != last_year:
-                year_label = Gtk.Label(label=f"{year}年")
-                year_label.add_css_class("month-nav-year")
-                year_label.set_xalign(0.0)
-                year_label.set_margin_top(8 if last_year is not None else 4)
-                box.append(year_label)
-                last_year = year
-
-            button = Gtk.Button()
-            button.add_css_class("flat")
-            button.add_css_class("month-nav-row")
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            label = Gtk.Label(label=f"{month_number}月")
-            label.set_xalign(0.0)
-            label.set_hexpand(True)
-            row.append(label)
-            count_label = Gtk.Label(label=f"{count} 项")
-            count_label.add_css_class("month-nav-count")
-            row.append(count_label)
-            if (year, month_number) == active:
-                check = Gtk.Image.new_from_icon_name("object-select-symbolic")
-                check.add_css_class("month-nav-check")
-                row.append(check)
-            button.set_child(row)
-            button.connect(
-                "clicked",
-                lambda _button, y=year, m=month_number: self._jump_to_month(y, m),
-            )
-            box.append(button)
-
-        scroller.set_child(box)
-        popover.set_child(scroller)
-        popover.connect("closed", self._on_month_popover_closed)
-        self._month_popover = popover
-        popover.popup()
-
-    def _on_month_popover_closed(self, popover: Gtk.Popover) -> None:
-        if popover is self._month_popover:
-            self._month_popover = None
-        if popover.get_parent() is not None:
-            popover.unparent()
-
-    def _close_month_popover(self) -> None:
-        if self._month_popover is None:
-            return
-        popover = self._month_popover
-        self._month_popover = None
-        popover.popdown()
-        if popover.get_parent() is not None:
-            popover.unparent()
-
-    def _jump_to_month(self, year: int, month: int) -> None:
-        self._close_month_popover()
-        offset = self._gallery.jump_offset(year, month)
-        if offset is not None:
-            self._pending_scroll = None
-            self._animate_scroll(offset)
 
     def _open_viewer(self, item: MediaItem) -> None:
         items = self._filtered_items or self._all_items

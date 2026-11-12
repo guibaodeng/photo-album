@@ -89,7 +89,6 @@ class Gallery(Gtk.Box):
         on_activate: Callable[[MediaItem], None],
         on_context_menu: Callable[[MediaTile, float, float], None] | None = None,
         on_delete: Callable[[MediaItem], None] | None = None,
-        on_month_click: Callable[[tuple[int, int], Gtk.Widget], None] | None = None,
     ) -> None:
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=_ROW_GAP)
         self.set_margin_top(_MARGIN_TOP)
@@ -108,7 +107,6 @@ class Gallery(Gtk.Box):
         self._on_activate = on_activate
         self._on_context_menu = on_context_menu
         self._on_delete = on_delete
-        self._on_month_click = on_month_click
 
         self._items: list[MediaItem] = []
         self._side_inset = 0
@@ -525,14 +523,9 @@ class Gallery(Gtk.Box):
         header.set_margin_top(14)
         header.set_margin_bottom(2)
 
-        title = Gtk.Button(label=f"{year}年{month}月")
-        title.add_css_class("flat")
+        title = Gtk.Label(label=f"{year}年{month}月")
         title.add_css_class("section-title")
-        title.add_css_class("month-title")
-        title.set_halign(Gtk.Align.START)
-        title.set_valign(Gtk.Align.CENTER)
-        title.set_tooltip_text("打开月份导航")
-        title.connect("clicked", lambda *_: self._month_clicked((year, month), title))
+        title.set_xalign(0.0)
         header.append(title)
 
         photos = sum(1 for item in items if not item.is_video)
@@ -553,17 +546,6 @@ class Gallery(Gtk.Box):
         line.add_css_class("section-line")
         header.append(line)
         return header
-
-    def _month_clicked(self, month: tuple[int, int], anchor: Gtk.Widget) -> None:
-        if self._on_month_click is not None:
-            self._on_month_click(month, anchor)
-
-    def month_summary(self) -> list[tuple[tuple[int, int], int]]:
-        """按当前排序汇总所有月份及数量，供月份导航使用。"""
-        counts: dict[tuple[int, int], int] = {}
-        for item in self._items:
-            counts[item.year_month] = counts.get(item.year_month, 0) + 1
-        return [(month, counts[month]) for month in self._month_order() if month in counts]
 
     # ------------------------------------------------------------------ 几何
     def _ensure_geometry(self) -> bool:
