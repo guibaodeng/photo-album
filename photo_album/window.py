@@ -685,7 +685,10 @@ class MainWindow(Adw.ApplicationWindow):
             return False
 
         value = self._vadjustment.get_value()
-        active = self._gallery.active_month(value)
+        # 启动/刷新时如果还在顶部，不要锁定“当前第一批里的旧月份”，
+        # 否则后续批次插入更新的照片后，视图会停在旧月份。
+        at_top = value <= 1.0
+        active = None if at_top else self._gallery.active_month(value)
         anchor = self._gallery.jump_offset(*active) if active is not None else None
         delta = max(0.0, value - anchor) if anchor is not None else 0.0
         self._filtered_items = items
@@ -694,13 +697,14 @@ class MainWindow(Adw.ApplicationWindow):
         self._timeline.set_entries(self._gallery.timeline_entries())
         self._page_stack.set_visible_child_name("gallery")
         self._update_header()
-        self._pending_scroll = (active, delta, value, 0)
+        self._pending_scroll = (None, 0.0, 0.0, 0) if at_top else (active, delta, value, 0)
         GLib.idle_add(self._update_view)
         return False
 
     def _refresh_scan_items(self) -> None:
         value = self._vadjustment.get_value()
-        active = self._gallery.active_month(value)
+        at_top = value <= 1.0
+        active = None if at_top else self._gallery.active_month(value)
         anchor = self._gallery.jump_offset(*active) if active is not None else None
         delta = max(0.0, value - anchor) if anchor is not None else 0.0
         self._all_items.sort(
@@ -715,7 +719,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._update_header()
         self._update_scan_status()
         if items:
-            self._pending_scroll = (active, delta, value, 0)
+            self._pending_scroll = (None, 0.0, 0.0, 0) if at_top else (active, delta, value, 0)
         GLib.idle_add(self._update_view)
 
     # ------------------------------------------------------------------ 筛选
