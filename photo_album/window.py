@@ -30,6 +30,40 @@ _FILTER_OPTIONS = {
 }
 
 
+
+
+class _ClampLayout(Gtk.LayoutManager):
+    """让子控件宽度严格跟随视口，忽略照片行自身的最小宽度。"""
+
+    def do_get_request_mode(self, _widget: Gtk.Widget) -> Gtk.SizeRequestMode:
+        return Gtk.SizeRequestMode.HEIGHT_FOR_WIDTH
+
+    def do_measure(self, widget: Gtk.Widget, orientation: Gtk.Orientation, for_size: int):
+        if orientation == Gtk.Orientation.HORIZONTAL:
+            return (0, 0, -1, -1)
+        child = widget.get_first_child()
+        if child is None:
+            return (0, 0, -1, -1)
+        minimum, natural, min_baseline, nat_baseline = child.measure(
+            Gtk.Orientation.VERTICAL, for_size
+        )
+        return (minimum, natural, min_baseline, nat_baseline)
+
+    def do_allocate(self, widget: Gtk.Widget, width: int, height: int, baseline: int) -> None:
+        child = widget.get_first_child()
+        if child is not None:
+            child.allocate(width, height, baseline, None)
+
+
+class _WidthHost(Gtk.Widget):
+    def __init__(self, child: Gtk.Widget) -> None:
+        super().__init__()
+        self.set_layout_manager(_ClampLayout())
+        child.set_parent(self)
+        self.set_hexpand(True)
+        self.set_halign(Gtk.Align.FILL)
+
+
 class _PageHost(Adw.Bin):
     """简易页面容器。
 
@@ -217,7 +251,17 @@ class MainWindow(Adw.ApplicationWindow):
         )
         self._gallery.set_headers_visible(self._config.show_date_headers)
         self._gallery.on_layout_changed = self._on_gallery_layout
-        self._scroller.set_child(self._gallery)
+        # 宽度由 host 强制跟随视口，内部行可以正常缩窄/扩展。
+        self._gallery.set_margin_top(0)
+        self._gallery.set_margin_bottom(0)
+        self._gallery.set_margin_start(0)
+        self._gallery.set_margin_end(0)
+        self._gallery_host = _WidthHost(self._gallery)
+        self._gallery_host.set_margin_top(8)
+        self._gallery_host.set_margin_bottom(56)
+        self._gallery_host.set_margin_start(22)
+        self._gallery_host.set_margin_end(22)
+        self._scroller.set_child(self._gallery_host)
 
         self._timeline = Timeline()
         self._timeline.set_on_jump(self._on_timeline_jump)
