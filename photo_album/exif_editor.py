@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 import os
-import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -18,8 +17,6 @@ from gi.repository import Adw, Gtk  # noqa: E402
 
 from .models import MediaItem  # noqa: E402
 from .scanner import EXIF_EDITOR_MARKER  # noqa: E402
-
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 try:  # GExiv2 是可选依赖。
     import gi as _gi

@@ -75,6 +75,7 @@ class MediaItem:
     taken_at: datetime
     width: int
     height: int
+    ctime: float = 0.0
     orientation: int = 1
     duration: float = 0.0
     date_source: str = "mtime"

@@ -119,6 +119,7 @@ class Gallery(Gtk.Box):
         self._geometry_valid = False
         self._geometry_retry = 0
         self._relayout_source = 0
+        self._width_check_source = 0
         self._last_width = 0
         self._generation = 0
 
@@ -129,7 +130,7 @@ class Gallery(Gtk.Box):
 
         # GTK4 的 GtkWidget 不会在尺寸变化时发出可用的 width 通知，
         # 这里用低频轮询检查宽度，保证窗口缩放时照片墙重新排版。
-        GLib.timeout_add(110, self._check_width)
+        self._width_check_source = GLib.timeout_add(110, self._check_width)
 
     # ------------------------------------------------------------------ 状态
     @property
@@ -161,6 +162,20 @@ class Gallery(Gtk.Box):
     @property
     def item_count(self) -> int:
         return len(self._items)
+
+    def do_unroot(self) -> None:
+        """控件从层级中移除时清理后台任务与定时器，防止回调已释放对象。"""
+        self._cancel_all_tasks()
+        if self._width_check_source:
+            GLib.source_remove(self._width_check_source)
+            self._width_check_source = 0
+        if self._geometry_retry:
+            GLib.source_remove(self._geometry_retry)
+            self._geometry_retry = 0
+        if self._relayout_source:
+            GLib.source_remove(self._relayout_source)
+            self._relayout_source = 0
+        Gtk.Box.do_unroot(self)
 
     def set_items(self, items: Iterable[MediaItem]) -> None:
         self._generation += 1

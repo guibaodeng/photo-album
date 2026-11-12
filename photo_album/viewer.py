@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-import warnings
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
@@ -18,8 +18,6 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Pango", "1.0")
 
 from gi.repository import Adw, Gdk, GLib, Graphene, Gtk, Pango  # noqa: E402
-
-warnings.filterwarnings("ignore", category=DeprecationWarning, module=__name__)
 
 from .config import Config  # noqa: E402
 from .imaging import decode_image  # noqa: E402
@@ -440,6 +438,10 @@ class MediaViewer(Adw.Window):
         if 0 <= target < len(self._items):
             self._show(target)
 
+    def contains(self, item: MediaItem) -> bool:
+        """查看器当前列表中是否包含指定媒体。"""
+        return any(entry.path == item.path for entry in self._items)
+
     def _on_key_pressed(
         self,
         _controller: Gtk.EventControllerKey,
@@ -487,6 +489,8 @@ class MediaViewer(Adw.Window):
 
     # ------------------------------------------------------------------ 照片
     def _show_photo(self, item: MediaItem) -> None:
+        if self._closed:
+            return
         self._stop_video()
         self._stack.set_visible_child_name("photo")
         self._load_generation += 1
@@ -504,6 +508,8 @@ class MediaViewer(Adw.Window):
         self._executor.submit(self._load_full_image, item, generation)
 
     def _load_full_image(self, item: MediaItem, generation: int) -> None:
+        if self._closed:
+            return
         data: bytes | None = None
         try:
             data = decode_image(item.path, _VIEW_MAX_SIDE, orientation=item.orientation, quality=92)
@@ -533,7 +539,7 @@ class MediaViewer(Adw.Window):
         self._stack.set_visible_child_name("video")
         self._stop_video()
         try:
-            media = Gtk.MediaFile.new_for_filename(str(item.path))
+            media = Gtk.MediaFile.new_for_filename(os.fspath(item.path))
         except Exception:  # noqa: BLE001
             return
         self._media = media

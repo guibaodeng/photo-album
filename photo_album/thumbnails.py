@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import itertools
+import logging
 import os
 import queue
 import threading
@@ -61,6 +62,7 @@ class ThumbnailCache:
                 str(self.VERSION),
                 os.fspath(item.path),
                 str(int(item.mtime * 1_000_000)),
+                str(int(item.ctime * 1_000_000)),
                 str(item.size),
                 str(self.max_side),
                 item.kind.value,
@@ -80,17 +82,19 @@ class ThumbnailCache:
             return None
         return data or None
 
-    def write(self, key: str, data: bytes) -> None:
+    def write(self, key: str, data: bytes) -> bool:
         if not data:
-            return
+            return False
         path = self.path_for(key)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_suffix(".tmp")
             tmp.write_bytes(data)
             os.replace(tmp, path)
-        except OSError:
-            pass
+            return True
+        except OSError as exc:
+            logging.warning("写入缩略图缓存失败：%s (%s)", path, exc)
+            return False
 
     def clear(self) -> int:
         """删除全部缓存，返回释放的字节数。"""

@@ -28,6 +28,7 @@ class PreferencesDialog(Adw.PreferencesDialog):
         self._window = window
         self._cache = cache
         self._on_change = on_change
+        self._cache_update_source = 0
         self.set_title("偏好设置")
 
         self._build_library_page()
@@ -89,7 +90,8 @@ class PreferencesDialog(Adw.PreferencesDialog):
         page.add(action_group)
 
         self.add(page)
-        GLib.idle_add(self._update_cache_row)
+        self._cache_update_source = GLib.idle_add(self._update_cache_row)
+        self.connect("closed", self._on_closed)
 
     def _build_appearance_page(self) -> None:
         page = Adw.PreferencesPage()
@@ -223,11 +225,18 @@ class PreferencesDialog(Adw.PreferencesDialog):
         self._persist("cache")
 
     def _update_cache_row(self) -> bool:
+        self._cache_update_source = 0
         total, count = self._cache.total_size()
-        if self._cache_row.get_subtitle().startswith("已清空"):
+        subtitle = self._cache_row.get_subtitle() or ""
+        if subtitle.startswith("已清空"):
             return False
         self._cache_row.set_subtitle(f"{format_size(total)} · {count} 个文件")
         return False
+
+    def _on_closed(self, *_args: object) -> None:
+        if self._cache_update_source:
+            GLib.source_remove(self._cache_update_source)
+            self._cache_update_source = 0
 
     # ------------------------------------------------------------------ 回调
     def _on_recursive(self, row: Adw.SwitchRow, _param) -> None:

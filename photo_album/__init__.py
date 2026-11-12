@@ -9,4 +9,4 @@ gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
 gi.require_version("Gsk", "4.0")
 
-__version__ = "1.0.0"
+__version__ = "1.1.2"

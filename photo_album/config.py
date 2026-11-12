@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 from dataclasses import asdict, dataclass, field
@@ -180,7 +181,7 @@ class Config:
         self.window_height = max(560, min(6000, int(self.window_height)))
         self.excluded_dirs = [name for name in self.excluded_dirs if name]
 
-    def save(self, path: Path | None = None) -> None:
+    def save(self, path: Path | None = None) -> bool:
         path = path or config_path()
         self.sanitize()
         try:
@@ -193,5 +194,7 @@ class Config:
                 handle.write(payload)
                 tmp_name = handle.name
             os.replace(tmp_name, path)
-        except OSError:
-            pass
+            return True
+        except OSError as exc:
+            logging.warning("保存配置失败：%s (%s)", path, exc)
+            return False

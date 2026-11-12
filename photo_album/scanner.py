@@ -21,8 +21,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterable, Iterator
 
-warnings.filterwarnings("ignore", category=DeprecationWarning, module=__name__)
-
 from .models import (
     IMAGE_EXTENSIONS,
     VIDEO_EXTENSIONS,
@@ -88,6 +86,16 @@ _FILENAME_DATETIME_SEPARATED = re.compile(
 _FILENAME_DATE_ONLY = re.compile(
     r"(?<!\d)((?:19|20)\d{2})[-_.](0[1-9]|1[0-2])[-_.](0[1-9]|[12]\d|3[01])(?!\d)"
 )
+
+
+def _gexiv2_tag_string(metadata, tag: str) -> str | None:
+    """读取 GExiv2 标签；在调用点抑制已知的弃用警告，避免全局过滤。"""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        try:
+            return metadata.get_tag_string(tag)
+        except Exception:  # noqa: BLE001 - GExiv2 抛出的异常类型较杂
+            return None
 
 
 @dataclass
@@ -165,8 +173,11 @@ def _parse_iso_datetime(value: str | None) -> datetime | None:
     return parsed
 
 
-def _from_timestamp(timestamp: float) -> datetime:
-    return datetime.fromtimestamp(timestamp)
+def _from_timestamp(timestamp: float) -> datetime | None:
+    try:
+        return datetime.fromtimestamp(timestamp)
+    except (OSError, ValueError, OverflowError):
+        return None
 
 
 def _probe_ffprobe(path: Path) -> dict | None:
@@ -194,7 +205,7 @@ def _probe_ffprobe(path: Path) -> dict | None:
         return None
     try:
         return json.loads(proc.stdout)
-    except ValueError:
+    except json.JSONDecodeError:
         return None
 
 
@@ -208,12 +219,12 @@ def _exif_metadata(path: Path) -> tuple[int, int, int, datetime | None, str]:
         width = int(metadata.get_pixel_width())
         height = int(metadata.get_pixel_height())
         orientation = 1
-        try:
-            raw_orientation = metadata.get_tag_string("Exif.Image.Orientation")
-            if raw_orientation:
+        raw_orientation = _gexiv2_tag_string(metadata, "Exif.Image.Orientation")
+        if raw_orientation:
+            try:
                 orientation = int(raw_orientation.strip() or 1)
-        except (ValueError, Exception):  # noqa: BLE001 - GExiv2 抛出的异常类型较杂
-            orientation = 1
+            except ValueError:
+                orientation = 1
         taken: datetime | None = None
         for tag in (
             "Exif.Photo.DateTimeOriginal",
@@ -222,10 +233,7 @@ def _exif_metadata(path: Path) -> tuple[int, int, int, datetime | None, str]:
             "Exif.Image.DateTimeOriginal",
             "Exif.Image.DateTime",
         ):
-            try:
-                taken = _parse_exif_datetime(metadata.get_tag_string(tag))
-            except Exception:  # noqa: BLE001
-                taken = None
+            taken = _parse_exif_datetime(_gexiv2_tag_string(metadata, tag))
             if taken is not None:
                 break
         if width > 0 and height > 0:
@@ -242,7 +250,7 @@ def _has_manual_exif_date(path: Path) -> bool:
     try:
         metadata = GExiv2.Metadata()
         metadata.open_path(os.fspath(path))
-        value = metadata.get_tag_string("Exif.Image.ProcessingSoftware")
+        value = _gexiv2_tag_string(metadata, "Exif.Image.ProcessingSoftware")
         return (value or "").strip() == EXIF_EDITOR_MARKER
     except Exception:  # noqa: BLE001
         return False
@@ -315,13 +323,15 @@ def _video_metadata(path: Path, stat: os.stat_result) -> tuple[int, int, float, 
                     if duration > 0:
                         break
             rotation = 0
-            for side in stream.get("side_data_list", []) or []:
-                try:
-                    rotation = int(round(float(side.get("rotation") or 0)))
-                except (TypeError, ValueError):
-                    rotation = 0
-                if rotation:
-                    break
+            side_data_list = stream.get("side_data_list") or []
+            if isinstance(side_data_list, list):
+                for side in side_data_list:
+                    try:
+                        rotation = int(round(float(side.get("rotation") or 0)))
+                    except (TypeError, ValueError):
+                        rotation = 0
+                    if rotation:
+                        break
             if not rotation:
                 try:
                     rotation = int(round(float(stream.get("tags", {}).get("rotate") or 0)))
@@ -346,6 +356,8 @@ def _video_metadata(path: Path, stat: os.stat_result) -> tuple[int, int, float, 
         width, height = 1920, 1080
     if taken is None:
         taken = _from_timestamp(stat.st_mtime)
+    if taken is None:
+        taken = datetime(1970, 1, 1)
     return width, height, max(0.0, duration), taken
 
 
@@ -353,6 +365,7 @@ def _probe_item(path: Path, stat: os.stat_result, kind: MediaKind) -> MediaItem 
     """读取单个文件的元数据；无法识别时返回 None。"""
     size = int(stat.st_size)
     mtime = float(stat.st_mtime)
+    ctime = float(stat.st_ctime)
     if kind is MediaKind.VIDEO:
         width, height, duration, taken = _video_metadata(path, stat)
         return MediaItem(
@@ -360,6 +373,7 @@ def _probe_item(path: Path, stat: os.stat_result, kind: MediaKind) -> MediaItem 
             kind=kind,
             size=size,
             mtime=mtime,
+            ctime=ctime,
             taken_at=taken,
             width=width,
             height=height,
@@ -412,11 +426,15 @@ def _probe_item(path: Path, stat: os.stat_result, kind: MediaKind) -> MediaItem 
     if taken is None:
         taken = _from_timestamp(mtime)
         source = "mtime"
+    if taken is None:
+        taken = datetime(1970, 1, 1)
+        source = "mtime"
     return MediaItem(
         path=path,
         kind=kind,
         size=size,
         mtime=mtime,
+        ctime=ctime,
         taken_at=taken,
         width=width,
         height=height,

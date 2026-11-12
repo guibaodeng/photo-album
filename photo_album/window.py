@@ -136,19 +136,22 @@ class MainWindow(Adw.ApplicationWindow):
         self._delete_scroll_before: float | None = None
         self._dialog_scroll_handler = 0
         self._holding_dialog_scroll = False
+        self._maximize_source = 0
+        self._start_scan_source = 0
 
         self.set_title(APP_NAME)
         self.set_default_size(config.window_width, config.window_height)
         if config.window_maximized:
-            GLib.idle_add(self._maximize_idle)
+            self._maximize_source = GLib.idle_add(self._maximize_idle)
 
         self._build_ui()
         self._install_actions()
         self.connect("close-request", self._on_close_request)
-        GLib.idle_add(self._start_scan)
+        self._start_scan_source = GLib.idle_add(self._start_scan)
 
     # ------------------------------------------------------------------ 界面
     def _maximize_idle(self) -> bool:
+        self._maximize_source = 0
         self.maximize()
         return False
 
@@ -1277,7 +1280,7 @@ class MainWindow(Adw.ApplicationWindow):
             self._scroll_animation_source = 0
         if self._viewer is not None and self._viewer.get_visible():
             try:
-                if any(entry.path == item.path for entry in self._viewer._items):
+                if self._viewer.contains(item):
                     self._viewer.close()
             except Exception:  # noqa: BLE001
                 pass
@@ -1426,6 +1429,12 @@ class MainWindow(Adw.ApplicationWindow):
         self._closed = True
         if self._scan_cancel is not None:
             self._scan_cancel.set()
+        if self._maximize_source:
+            GLib.source_remove(self._maximize_source)
+            self._maximize_source = 0
+        if self._start_scan_source:
+            GLib.source_remove(self._start_scan_source)
+            self._start_scan_source = 0
         if not self.is_maximized():
             self._config.window_width = max(860, self.get_width())
             self._config.window_height = max(560, self.get_height())
