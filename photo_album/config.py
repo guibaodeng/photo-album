@@ -14,7 +14,10 @@ from pathlib import Path
 
 APP_ID = "io.github.dengguibao.PhotoAlbum"
 APP_NAME = "相册"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
+
+#: 时间轴功能暂时关闭；实现保留，改回 True 即可恢复。
+FEATURE_TIMELINE = False
 
 #: 默认媒体库目录（可通过偏好设置或命令行参数修改）。
 DEFAULT_ROOT = Path.home() / "OneDrive" / "Pictures"

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
-from .config import APP_NAME, Config
+from .config import APP_NAME, FEATURE_TIMELINE, Config
 from .exif_editor import ExifEditor
 from .file_actions import copy_files, delete_permanently, move_to_trash, show_in_file_manager
 from .models import MediaItem
@@ -841,6 +841,8 @@ class MainWindow(Adw.ApplicationWindow):
         self._scroll_animation_source = GLib.timeout_add(16, tick)
 
     def _set_timeline_visible(self, visible: bool) -> None:
+        # 时间轴功能暂时关闭；保留实现和配置字段，恢复时将 FEATURE_TIMELINE 改为 True。
+        visible = bool(visible and FEATURE_TIMELINE)
         self._timeline.set_visible(visible)
         if hasattr(self, "_gallery"):
             self._gallery.set_side_inset(76 if visible else 0)

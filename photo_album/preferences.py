@@ -8,7 +8,7 @@ from pathlib import Path
 
 from gi.repository import Adw, Gio, GLib, Gtk
 
-from .config import Config, ROW_HEIGHT_MAX, ROW_HEIGHT_MIN
+from .config import FEATURE_TIMELINE, Config, ROW_HEIGHT_MAX, ROW_HEIGHT_MIN
 from .models import format_size
 from .thumbnails import ThumbnailCache
 
@@ -126,12 +126,13 @@ class PreferencesDialog(Adw.PreferencesDialog):
         header_row.connect("notify::active", self._on_date_headers_changed)
         group.add(header_row)
 
-        timeline_row = Adw.SwitchRow()
-        timeline_row.set_title("显示右侧时间线")
-        timeline_row.set_subtitle("在窗口右侧显示年/月刻度，可点击跳转")
-        timeline_row.set_active(self._config.show_timeline)
-        timeline_row.connect("notify::active", self._on_timeline_changed)
-        group.add(timeline_row)
+        if FEATURE_TIMELINE:
+            timeline_row = Adw.SwitchRow()
+            timeline_row.set_title("显示右侧时间线")
+            timeline_row.set_subtitle("在窗口右侧显示年/月刻度，可点击跳转")
+            timeline_row.set_active(self._config.show_timeline)
+            timeline_row.connect("notify::active", self._on_timeline_changed)
+            group.add(timeline_row)
 
         page.add(group)
         self.add(page)

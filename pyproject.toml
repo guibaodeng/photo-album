@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "photo-album"
-version = "1.0.0"
+version = "1.0.1"
 description = "Linux 本地照片与视频浏览器：多目录媒体库、等高行/连续照片墙、时间线、EXIF、视频播放与右键删除"
 readme = "README.md"
 requires-python = ">=3.10"
