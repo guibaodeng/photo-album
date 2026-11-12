@@ -216,7 +216,7 @@ photo-album
 已生成可安装的 Debian 包：
 
 ```bash
-sudo apt install ./dist/photo-album_1.1.1_all.deb
+sudo apt install ./dist/photo-album_1.1.2_all.deb
 ```
 
 安装后可以在应用菜单里搜索「相册」启动，桌面入口和图标会安装到系统目录。

@@ -154,14 +154,12 @@ class PhotoCanvas(Gtk.Widget):
         scale = self._base_scale() * self._zoom
         image_width = self._texture.get_width() * scale
         image_height = self._texture.get_height() * scale
-        if image_width <= width:
-            self._offset[0] = 0.0
-        else:
-            self._offset[0] = max(width - image_width, min(0.0, self._offset[0]))
-        if image_height <= height:
-            self._offset[1] = 0.0
-        else:
-            self._offset[1] = max(height - image_height, min(0.0, self._offset[1]))
+        # 图片以视口中心为原点绘制。放大后超出的部分两侧都可以移动，
+        # 限制在 ±(图片尺寸 - 视口尺寸) / 2 内。
+        limit_x = max(0.0, image_width - width) / 2.0
+        limit_y = max(0.0, image_height - height) / 2.0
+        self._offset[0] = max(-limit_x, min(limit_x, self._offset[0]))
+        self._offset[1] = max(-limit_y, min(limit_y, self._offset[1]))
 
     def _update_cursor(self) -> None:
         name = "grabbing" if self._drag_origin is not None else ("grab" if self._zoom > 1.0 else "default")
